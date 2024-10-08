@@ -246,7 +246,7 @@ function GetAtlasTex(atlas_tex, tex)
 end
 ```
 
-This allows the game to find .png files from outside of default search paths (like when you load an image from your own mod's images folder).
+This allows the game to find .png files from outside of default search paths (like when you load an image from your own mod's directory).
 
 # Debugging Mods
 
