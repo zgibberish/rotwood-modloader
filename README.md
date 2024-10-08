@@ -29,7 +29,7 @@ List of things that you can and cannot do with modding right now (might be incom
 
 # How to load mods
 
-**Editing the game scripts requires you to have extracted scripts and use modified scripts (see [Extracting game scripts](extracting_game_scripts.md)), mods will stop working if you decide to switch back to the original scripts. In some rare cases, playing with mods, then reverting back to vanilla scripts can cause bugs and glitches, so you should definitely make backups of your saves.**
+**Editing the game scripts requires you to have extracted scripts and use modified scripts (see [Extracting game scripts](https://github.com/zgibberish/rotwood-mods/blob/main/docs/extracting_game_scripts.md)), mods will stop working if you decide to switch back to the original scripts. In some rare cases, playing with mods, then reverting back to vanilla scripts can cause bugs and glitches, so you should definitely make backups of your saves.**
 
  To enable mods and make the mod manager usable, you will first need to modify a few lines in the game scripts, as follows: 
 
