@@ -218,6 +218,36 @@ for k,prefabpostinitany in pairs(ModManager:GetPostInitFns("PrefabPostInitAny"))
 end
 ```
 
+## Allow resolving file paths for .png images
+
+In `util.lua`, modify the `GetAtlasTex` function like below
+
+```diff
+function GetAtlasTex(atlas_tex, tex)
+	local istex = atlas_tex:find(".tex",1,true)
++	local ispng = atlas_tex:find(".png",1,true)
+	if istex then
+		local index1 = string.find(atlas_tex, "/", 1, true)
+		if not index1 then
+			return atlas_tex, "", true
+		end
+		local index2 = string.find(atlas_tex, "/", index1 + 1, true)
+		if not index2 then
+			return atlas_tex, "", true
+		end
+		local atlas = atlas_tex:sub(1,index2-1)..".xml"
+		tex = atlas_tex:sub(index2+1)
+		return atlas,tex,true
++	elseif ispng then
++		return atlas_tex, "", true
+	else
+		return atlas_tex, "", false
+	end
+end
+```
+
+This allows the game to find .png files from outside of default search paths (like when you load an image from your own mod's images folder).
+
 # Debugging Mods
 
 ### Dev Tools
