@@ -7,68 +7,50 @@ local Image = require "widgets/image"
 local UIAnim = require "widgets/uianim"
 local Widget = require "widgets/widget"
 
+local Controls = require "input.controls"
+
 local ModWarningScreen = Class(Screen, function(self, title, text, buttons, texthalign, additionaltext, textsize)
 	Screen._ctor(self, "ModWarningScreen")
 
 	--darken everything behind the dialog
-	self.black = self:AddChild(Image("images/global/square.tex"))
+	self.background = self:AddChild(Image("images/global/square.tex"))
 		:SetName("Background")
     	:SetSize(RES_X, RES_Y)
 		:SetMultColor(UICOLORS.BACKGROUND_DARK)
 		:SetMultColorAlpha(0.8)
 
-	self.root = self:AddChild(Widget("ROOT"))
+	self.main_stack = self:AddChild(Widget("Main Stack"))
+		:SetRegistration("center", "center")
 
 	--title
-    self.title = self.root:AddChild(Text(FONTFACE.TITLE, FONTSIZE.DIALOG_TITLE))
-    	:SetPosition(0, 170)
+    self.title = self.main_stack:AddChild(Text(FONTFACE.TITLE, FONTSIZE.OVERLAY_TITLE))
+		:SetName("Title")
     	:SetText(title)
+
+	self.textbody_stack = self.main_stack:AddChild(Widget("Text Body Stack"))
+		:SetRegistration("center", "center")
 
 	--text
 	local defaulttextsize = textsize or FONTSIZE.DIALOG_TEXT
-
-    self.text = self.root:AddChild(Text(FONTFACE.BODYTEXT, defaulttextsize))
-		:SetVAlign(ANCHOR_TOP)
-
+    self.text = self.textbody_stack:AddChild(Text(FONTFACE.BODYTEXT, defaulttextsize))
+		:EnableWordWrap(true)
+		:SetAutoSize(480*4)
+		:SetText(text)
 	if texthalign then
 		self.text:SetHAlign(texthalign)
 	end
 
-
-    self.text
-		:SetPosition(0, 40, 0)
-    	:SetText(text)
-    	:EnableWordWrap(true)
-    	:SetRegionSize(480*2, 200)
-
     if additionaltext then
-	    self.additionaltext = self.root:AddChild(Text(FONTFACE.BODYTEXT, 50))
-			:SetVAlign(ANCHOR_TOP)
-	    	:SetPosition(0, -150, 0)
+	    self.additionaltext = self.textbody_stack:AddChild(Text(FONTFACE.BODYTEXT, 50))
+			:SetName("Additional Text")
 	    	:SetText(additionaltext)
 	    	:EnableWordWrap(true)
-	    	:SetRegionSize(480*2, 100)
+	    	:SetAutoSize(480*4)
     end
 
-	self.version = self:AddChild(Text(FONTFACE.BODYTEXT, 50))
-	--self.version:SetHRegPoint(ANCHOR_LEFT)
-	--self.version:SetVRegPoint(ANCHOR_BOTTOM)
-	self.version:SetAnchors("left", "center")
-		:SetVAlign(ANCHOR_BOTTOM)
-		:SetRegionSize(200, 40)
-		:SetPosition(110, 30, 0)
-		:SetText("Rev. "..APP_VERSION.." "..PLATFORM)
-
 	if buttons then
-	    --create the menu itself
-	    local button_w = 200
-	    local space_between = 20
-	    local spacing = button_w + space_between
-
-	    self.menu = self.root:AddChild(Menu(buttons, 250, true))
-	    self.menu:SetHRegPoint(ANCHOR_MIDDLE)
-	    self.menu:SetPosition(0, -250, 0)
-	    self.default_focus = self.menu
+	    self.menu = self.main_stack:AddChild(Menu(buttons, 250, true))
+			:SetName("Buttons")
 	end
 
 	if Platform.IsRail() then
@@ -82,6 +64,33 @@ local ModWarningScreen = Class(Screen, function(self, title, text, buttons, text
 			end
 		end
 	end
+
+	self.version = self:AddChild(Text(FONTFACE.BODYTEXT, 50))
+		:SetName("Version Number")
+		:SetRegistration("left", "bottom")
+		:SetVAlign(ANCHOR_BOTTOM)
+		:SetHAlign(ANCHOR_LEFT)
+		:LayoutBounds("left", "bottom", self)
+		:SetText("Rev. "..APP_VERSION.." "..PLATFORM)
+		:SetMultColorAlpha(0.6)
+
+	self.textbody_stack
+		:CenterChildren()
+		:LayoutChildrenInColumn(48)
+	self.main_stack
+		:CenterChildren()
+		:LayoutChildrenInColumn(100)
+
+	self.default_focus = self.menu and self.menu.items[1] or self.text
 end)
+
+ModWarningScreen.CONTROL_MAP = {
+	{
+		control = Controls.Digital.CANCEL,
+		fn = function(self)
+			TheFrontEnd:PopScreen(self)
+		end,
+	},
+}
 
 return ModWarningScreen

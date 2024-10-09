@@ -151,6 +151,7 @@ Replace `screens/modwarningscreen.lua` with the `modwarningscreen.lua` file from
 There will be some missing strings that the screen needs, for your convenience, I made this snippet that you can just add to the end of `strings.lua`
 
 ```lua
+STRINGS.UI.MAINSCREEN.MODTITLE = "Mods Installed!"
 STRINGS.UI.MAINSCREEN.NEWMODDETAIL = "Newly installed mods: "
 STRINGS.UI.MAINSCREEN.MODDETAIL = "Installed mods: "
 STRINGS.UI.MAINSCREEN.MODDETAIL2 = "Klei is not able to help you should issues arise while using mods. Use with caution!"
