@@ -311,25 +311,23 @@ If you followed all the steps above correctly, your game is now patched and it s
 
 ```
 Rotwood/
-    bin/
-        ...
-    data/
-        licenses/
-        scripts/
-        ...
-    localizations/
-        ...
-    mods/
-        modmenu/
-            scripts/
-            modinfo.lua
-            modmain.lua
-        stackable-mammimal-howl/
-            modinfo.lua
-            modmain.lua
-        modsettings.lua
-    data.zip
-    ...
+├─ bin/
+│  ├─ ...
+├─ data/
+│  ├─ licenses/
+│  ├─ scripts/
+│  ├─ ...
+├─ localizations/
+├─ mods/
+│  ├─ modmenu/
+│  │  ├─ scripts/
+│  │  ├─ modinfo.lua
+│  │  ├─ modmain.lua
+│  ├─ stackable-mammimal-howl/
+│  │  ├─ modinfo.lua
+│  │  ├─ modmain.lua
+├─ data.zip
+├─ ...
 ```
 
 Just like DST mods, Rotwood mods are run in their own mod environments and work very similarly to DST mods (except DST-exclusive features).
