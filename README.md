@@ -90,12 +90,12 @@ In `modindex.lua`, modify `IsModCompatibleWithMode` like shown below
 
 ```diff
 function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
-	local known_mod = self.savedata.known_mods[modname]
-	if known_mod and known_mod.modinfo then
+    local known_mod = self.savedata.known_mods[modname]
+    if known_mod and known_mod.modinfo then
 -		return known_mod.modinfo.dst_compatible
 +		return known_mod.modinfo.rotwood_compatible
-	end
-	return false
+    end
+    return false
 end
 ```
 
@@ -125,20 +125,20 @@ Modify `runmodfn` like shown below
 
 ```diff
 local runmodfn = function(fn,mod,modtype)
-	return (function(...)
+    return (function(...)
 +		local args = {...}
-		if fn then
+        if fn then
 -			local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
 +			local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
-			if not status then
-				print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
-				ModManager:RemoveBadMod(mod.modname,r)
-				ModManager:DisplayBadMods()
-			else
-				return r
-			end
-		end
-	end)
+            if not status then
+                print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
+                ModManager:RemoveBadMod(mod.modname,r)
+                ModManager:DisplayBadMods()
+            else
+                return r
+            end
+        end
+    end)
 end
 ```
 
@@ -225,25 +225,25 @@ In `util.lua`, modify the `GetAtlasTex` function like below
 
 ```diff
 function GetAtlasTex(atlas_tex, tex)
-	local istex = atlas_tex:find(".tex",1,true)
+    local istex = atlas_tex:find(".tex",1,true)
 +	local ispng = atlas_tex:find(".png",1,true)
-	if istex then
-		local index1 = string.find(atlas_tex, "/", 1, true)
-		if not index1 then
-			return atlas_tex, "", true
-		end
-		local index2 = string.find(atlas_tex, "/", index1 + 1, true)
-		if not index2 then
-			return atlas_tex, "", true
-		end
-		local atlas = atlas_tex:sub(1,index2-1)..".xml"
-		tex = atlas_tex:sub(index2+1)
-		return atlas,tex,true
+    if istex then
+        local index1 = string.find(atlas_tex, "/", 1, true)
+        if not index1 then
+            return atlas_tex, "", true
+        end
+        local index2 = string.find(atlas_tex, "/", index1 + 1, true)
+        if not index2 then
+            return atlas_tex, "", true
+        end
+        local atlas = atlas_tex:sub(1,index2-1)..".xml"
+        tex = atlas_tex:sub(index2+1)
+        return atlas,tex,true
 +	elseif ispng then
 +		return atlas_tex, "", true
-	else
-		return atlas_tex, "", false
-	end
+    else
+        return atlas_tex, "", false
+    end
 end
 ```
 
