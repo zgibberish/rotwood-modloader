@@ -86,7 +86,7 @@ env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
 
 When using the built in mod manager, ModIndex will by default reject all mods unless they specify `dst_compatible = true` in `modinfo.lua`. Obviously, Rotwood mods are not DST mods and this doesn't make much sense.
 
-Modify `IsModCompatibleWithMode` like shown below
+In `modindex.lua`, modify `IsModCompatibleWithMode` like shown below
 
 ```diff
 function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
