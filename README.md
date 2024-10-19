@@ -146,7 +146,7 @@ end
 
 The built-in mod warning screen that shows up when you start the game with mods is broken because most of its code was taken straight from DST and hasn't been updated to work with Rotwood.
 
-Replace `screens/modwarningscreen.lua` with the `modwarningscreen.lua` file from the `patch` folder in this repository (can also copy-paste the whole file contents since it's just text).
+Replace `screens/modwarningscreen.lua` with the `modwarningscreen.lua` file from the `src` folder in this repository (can also copy-paste the whole file contents since it's just text).
 
 There will be some missing strings that the screen needs, for your convenience, I made this snippet that you can just add to the end of `strings.lua`
 
