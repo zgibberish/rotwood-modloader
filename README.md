@@ -92,8 +92,8 @@ In `modindex.lua`, modify `IsModCompatibleWithMode` like shown below
 function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
     local known_mod = self.savedata.known_mods[modname]
     if known_mod and known_mod.modinfo then
--		return known_mod.modinfo.dst_compatible
-+		return known_mod.modinfo.rotwood_compatible
+-       return known_mod.modinfo.dst_compatible
++       return known_mod.modinfo.rotwood_compatible
     end
     return false
 end
