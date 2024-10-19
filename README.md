@@ -126,10 +126,10 @@ Modify `runmodfn` like shown below
 ```diff
 local runmodfn = function(fn,mod,modtype)
     return (function(...)
-+		local args = {...}
++       local args = {...}
         if fn then
--			local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
-+			local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
+-           local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
++           local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
             if not status then
                 print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
                 ModManager:RemoveBadMod(mod.modname,r)
@@ -226,7 +226,7 @@ In `util.lua`, modify the `GetAtlasTex` function like below
 ```diff
 function GetAtlasTex(atlas_tex, tex)
     local istex = atlas_tex:find(".tex",1,true)
-+	local ispng = atlas_tex:find(".png",1,true)
++   local ispng = atlas_tex:find(".png",1,true)
     if istex then
         local index1 = string.find(atlas_tex, "/", 1, true)
         if not index1 then
@@ -239,8 +239,8 @@ function GetAtlasTex(atlas_tex, tex)
         local atlas = atlas_tex:sub(1,index2-1)..".xml"
         tex = atlas_tex:sub(index2+1)
         return atlas,tex,true
-+	elseif ispng then
-+		return atlas_tex, "", true
++   elseif ispng then
++       return atlas_tex, "", true
     else
         return atlas_tex, "", false
     end
