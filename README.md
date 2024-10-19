@@ -34,6 +34,8 @@ List of things that you can and cannot do with modding right now (might be incom
 
 **Editing the game scripts requires you to have extracted scripts and use modified scripts (see [Extracting game scripts](https://github.com/zgibberish/rotwood-mods/blob/main/docs/extracting_game_scripts.md)), mods will stop working if you decide to switch back to the original scripts. In some rare cases, playing with mods, then reverting back to vanilla scripts can cause bugs and glitches, so you should definitely make backups of your saves.**
 
+**NOTE:** This is a step-by-step guide on how to manually edit scripts yourself to patch the modloader, there are also [pre made diff patches](#pre-made-patch-files) if you prefer using those instead.
+
 You will be modifying, commenting and adding some code in the game scripts, if you are not familiar with lua's comment syntax, read [here](https://www.lua.org/pil/1.3.html). There's quite a few files to edit, so it may be a lengthy process. This will take 5-10 minutes of your time, so please bear with me.
 
 ## Allow mods to be loaded
@@ -335,3 +337,21 @@ Just like DST mods, Rotwood mods are run in their own mod environments and work 
 The `mods/` directory and everything inside it will persist through game updates, but edits you've made to game scripts won't, so you'll have to do all the steps above again every time Rotwood gets updated if you want to continue using mods.
 
 Again, Rotwood does not officially support modding, and Klei won't assist you for any issues that come up when you're playing with any kind of modifications. Making backups of your save files is also highly recommended.
+
+# Pre-made Patch Files
+
+To make the process quicker and easier, I also make diff patches for this, you can find them in the `patches` folder in this repo, just pick one with the revision number you need and apply it with GNU Patch.
+
+The patch utility should be included in most Linux distros, if you have GNU utils, you probably have it already. For Windows, you can get `patch` from the [GnuWin32](https://gnuwin32.sourceforge.net/packages/patch.htm) project, or use the one included in the Windows version of [Git](https://git-scm.com/), it's also available from [Chocolatey package manager](https://community.chocolatey.org/packages/patch).
+
+To apply a patch, have your `data_scripts.zip` extracted and have `scripts/` accessible from the current directory, then run this command
+
+```shell
+patch -p0 < patchfile
+```
+
+Where `patchfile` would be the patch file you're applying, for example: `637216.patch`.
+
+**NOTE:** this uses Unix input/output redirections syntax. I couldn't find how to do it on Windows's cmd/PowerShell :/ (you can also just use something like a Bash shell on Windows and it will work).
+
+I will try my best to make new patches for every newer version released, you can always manually patch your scripts using the guide above if there isn't a patch file made for your current game REV.
