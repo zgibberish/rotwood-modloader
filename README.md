@@ -126,10 +126,10 @@ Modify `runmodfn` like shown below
 ```diff
 local runmodfn = function(fn,mod,modtype)
 	return (function(...)
-+       local args = {...}
++		local args = {...}
 		if fn then
 -			local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
-+           local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
++			local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
 			if not status then
 				print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
 				ModManager:RemoveBadMod(mod.modname,r)
