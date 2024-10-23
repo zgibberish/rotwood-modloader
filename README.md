@@ -1,12 +1,14 @@
-# Loading mods
+# About Rotwood Modding
+
+**ModWrangler branch:** This is the newer, work-in-progress method to run mods, it requires a bit more work to patch the mod manager but should support more modding API features and be more stable. Please read the guide throughly, especially the [Possible Breaking Changes](#possible-breaking-changes) section below.
 
 **Rotwood currently does not officially support modding and Klei will not provide support for modded installs, please back up your save files and use/create mods at your own risk. [Read more here](https://support.klei.com/hc/en-us/articles/28992668677140-Rotwood-Client-Mods)**
 
 **Original post on Klei forums:** https://forums.kleientertainment.com/forums/topic/155849-unofficial-modding-support/
 
-Right now the built in mod loader of Rotwood is not complete and is disabled so by default it will not work properly. But it is possible to load and run mods, if you bypass the mod manager and load them yourself. After tinkering for a while now I have found a method to do so.
+Rotwood manages and loads mods using a few different components (mainly ModIndex and ModWrangler), at the current state of the game, these parts are not fully functional and are disabled by default. However, they can work with some modifications to the games scripts.
 
-Please note that this is still very bare bones and some modding API features might not work correctly or at all.
+Please note that this is still very experimenetal and some modding API features may not work correctly or at all.
 
 List of things that you can and cannot do with modding right now (might be incomplete):
 - Working:
@@ -14,28 +16,96 @@ List of things that you can and cannot do with modding right now (might be incom
     + Basically cheating (Since your game client manages your local player entities, even if you're not the host, you can do anything to yourself) (does Rotwood use peer to peer networking instead of server-clients? You can't c_spawn() if you're not the host though)
     + `modimport`, `require` for other mod scripts (working searchpaths).
     + `modinfo` (using the same structure as DST)
-    + Mod configuration options (**Needs more testing**) (**NOTE:** use `GetModConfigData(name, true)` instead, I couldn't figure out exactly why but not having `get_local_config` set to `true` will make it return nothing.)
-    + `modsettings.lua` (used to force load mods)
+    + Mod configuration options
+    + `modsettings.lua`
     + Upvalue modifying
     + `AddClassPostConstruct`
     + Custom widgets, screens and UI overall
     + Custom stategraphs
     + Custom components
     + Custom ImGui panels
-    + *Custom assets (works, but proper support is still work in progress)
+    + Add*PostInit (tested: `AddGamePostInit`, `AddSimPostInit`, `AddComponentPostInit`, `AddPrefabPostInit`, `AddPrefabPostInit`, `AddPrefabPostInitAny`, `AddPlayerPostInit`)
+    + Custom assets (mod assets can be loaded and used, though I have only tested on .png files)
+    + Mod icons (should work without issues, though support for it depends on the [Mod Menu](#mod-menu) mod)
 - Not working / haven't tested:
-    + Add*PostInit (reason: not implemented)
     + Networking (communicating with remote clients and sending data back and forth) (reason: not implemented and/or not enough info about Rotwood networking systems)
 
-# How to load mods
+# How to Load Mods
 
 **Editing the game scripts requires you to have extracted scripts and use modified scripts (see [Extracting game scripts](https://github.com/zgibberish/rotwood-mods/blob/main/docs/extracting_game_scripts.md)), mods will stop working if you decide to switch back to the original scripts. In some rare cases, playing with mods, then reverting back to vanilla scripts can cause bugs and glitches, so you should definitely make backups of your saves.**
 
- To enable mods and make the mod manager usable, you will first need to modify a few lines in the game scripts, as follows: 
+**NOTE:** This is a step-by-step guide on how to manually edit scripts yourself to patch the modloader, there are also [pre made diff patches](#pre-made-patch-files) if you prefer using those instead.
 
- ## In `mods.lua`
+You will be modifying, commenting and adding some code in the game scripts, if you are not familiar with lua's comment syntax, read [here](https://www.lua.org/pil/1.3.html). There's quite a few files to edit, so it may be a lengthy process. This will take 5-10 minutes of your time, so please bear with me.
 
-In `function CreateEnvironment(modname, isworldgen)`, comment the following lines:
+## Allow mods to be loaded
+
+In `main.lua`, add the following line in the `--defines` area, preferably right below the `--defines` line
+
+```lua
+MODS_ENABLED = true
+```
+
+Near the end of `main.lua` there are these lines
+
+```lua
+--#V2C no mods for now... deal with this later T_T
+assert(false)
+```
+
+Comment the `assert(false)` line.
+
+Add this right after `--#V2C no mods for now... deal with this later T_T` in the `ModSafeStartup` function
+
+```lua
+-- newly installed mods behave incorrectly so just go thorugh and
+-- disable all new mods and save modindex so the game can properly
+-- register them
+for _,modname in ipairs(TheSim:GetModDirectoryNames()) do
+    if KnownModIndex.savedata and KnownModIndex.savedata.known_mods and KnownModIndex.savedata.known_mods[modname] then		
+        if KnownModIndex.savedata.known_mods[modname].enabled == nil then
+            KnownModIndex:Disable(modname)
+        end
+    end
+end
+KnownModIndex:Save()
+ModManager:LoadMods()
+```
+
+## Fix modutil
+
+In `modutil.lua`, comment these lines
+
+```lua
+env.Ingredient = Ingredient
+```
+
+```lua
+env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
+```
+
+## Fix ModIndex
+
+When using the built in mod manager, ModIndex will by default reject all mods unless they specify `dst_compatible = true` in `modinfo.lua`. Obviously, Rotwood mods are not DST mods and this doesn't make much sense.
+
+In `modindex.lua`, modify `IsModCompatibleWithMode` like shown below
+
+```diff
+function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
+    local known_mod = self.savedata.known_mods[modname]
+    if known_mod and known_mod.modinfo then
+-       return known_mod.modinfo.dst_compatible
++       return known_mod.modinfo.rotwood_compatible
+    end
+    return false
+end
+```
+
+The variable `rotwood_compatible` isn't actually used anywhere else in Rotwood, I just decided to use that name so Rotwood mods can be more easily differentiated from ds(t) mods.
+
+## Fix ModWrangler
+
+In `mods.lua`, comment these lines from the `CreateEnvironment` function
 
 ```lua
 require("map/lockandkey")
@@ -47,166 +117,241 @@ LOCKS = LOCKS,
 KEYS = KEYS,
 ```
 
-## In `modutil.lua`
-
- In `local function InsertPostInitFunctions(env, isworldgen)`, near the end of the function, comment the following lines:
-
- ```lua
- env.Ingredient = Ingredient
- ```
-
- ```lua
- env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
- ```
-
-## In `main.lua`
-
-After editing the mod loader to make it work, now you have to enable mods by adding this line: 
+Then also comment this line from the `LoadMods` function
 
 ```lua
-MODS_ENABLED = true
+self:DisableAllServerMods()
 ```
 
-I recommend putting it in the `--defines` block, like this: 
+Modify `runmodfn` like shown below
 
-```lua
-...
---defines
-MODS_ENABLED = true
-MAIN = 1
-IS_QA_BUILD = TheSim:GetCurrentBetaName() == "huwiz"
-...
-```
-
-Near the end of `main.lua` there's also an `assert` call that was purposefully put there to make the game closes if mods are enabled, so you'll need to disable that too, simply comment that line like this: 
-
-```lua
-    --#V2C no mods for now... deal with this later T_T
-	--assert(true)
-```
-
- Last but not least, our very own mod loader, paste this at the end of `main.lua`: 
-
- ```lua
-local mods_to_load = {}
-for _,modname in ipairs(TheSim:GetModDirectoryNames()) do
-    local fn = kleiloadlua(MODS_ROOT..modname.."/".."modmain.lua")
-    if fn ~= nil then -- fix: only load and run a mod if it has a valid function, prevents crashes when loading an invalid or empty mod folder
-        if KnownModIndex.savedata and KnownModIndex.savedata.known_mods and KnownModIndex.savedata.known_mods[modname] then		
-            -- check if the mod's enabled state is nil
-            -- if it is then this usually means the mod is newly loaded and hasnt been configured
-            -- this will not catch mods that were disabled specifically
-            if KnownModIndex.savedata.known_mods[modname].enabled == nil then
-                -- new mods are enabled by default
-                KnownModIndex:Enable(modname)
-            end
-
-            -- at this point the enabled state should be set and we just need to check
-            -- if the mod is enabled (or force enabled) or not to load it
-            if KnownModIndex:IsModEnabled(modname) or KnownModIndex:IsModForceEnabled(modname)  then
-                local initenv = KnownModIndex:LoadModInfo(modname)
-                local env = CreateEnvironment(modname)
-                env.modinfo = initenv
-                table.insert(mods_to_load, {
-                    fn = fn,
-                    env = env,
-                    modinfo = env.modinfo,
-                    name = env.modinfo.name or modname,
-                    modname = modname
-                })
+```diff
+local runmodfn = function(fn,mod,modtype)
+    return (function(...)
++       local args = {...}
+        if fn then
+-           local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
++           local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
+            if not status then
+                print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
+                ModManager:RemoveBadMod(mod.modname,r)
+                ModManager:DisplayBadMods()
+            else
+                return r
             end
         end
-    end
-end 
-KnownModIndex:Save() -- save mods' enabled states if any were changed during loading
+    end)
+end
+```
 
--- now we have a table of all mods that need to be loaded,
--- we need to load it based on priority
-local function modPrioritySort(a,b)
-    local apriority = (a.modinfo and a.modinfo.priority) or 0
-    local bpriority = (b.modinfo and b.modinfo.priority) or 0
-    if apriority == bpriority then
-        return tostring(a.modinfo and a.modinfo.name) > tostring(b.modinfo and b.modinfo.name)
+## Fix ModWarningScreen
+
+The built-in mod warning screen that shows up when you start the game with mods is broken because most of its code was taken straight from DST and hasn't been updated to work with Rotwood.
+
+Replace `screens/modwarningscreen.lua` with the `modwarningscreen.lua` file from the `src` folder in this repository (can also copy-paste the whole file contents since it's just text).
+
+There will be some missing strings that the screen needs, for your convenience, I made this snippet that you can just add to the end of `strings.lua`
+
+```lua
+STRINGS.UI.MAINSCREEN.MODTITLE = "Mods Installed!"
+STRINGS.UI.MAINSCREEN.NEWMODDETAIL = "Newly installed mods: "
+STRINGS.UI.MAINSCREEN.MODDETAIL = "Installed mods: "
+STRINGS.UI.MAINSCREEN.MODDETAIL2 = "Klei is not able to help you should issues arise while using mods. Use with caution!"
+STRINGS.UI.MAINSCREEN.TESTINGYES = "I understand."
+STRINGS.UI.MAINSCREEN.FORCEMODDETAIL = "You are force loading these mods from modsettings.lua. They will always be enabled:"
+STRINGS.UI.MAINSCREEN.MODFORUMS = "Mod Forums"
+STRINGS.UI.MAINSCREEN.MODSBADTITLE = "All Mods Disabled"
+STRINGS.UI.MAINSCREEN.FAILEDMODS = "The following mods failed to run last time and have been disabled: "
+STRINGS.UI.MAINSCREEN.MODSBADLOAD = "The game did not start correctly last time. This was likely caused by a mod, so all client mods have been disabled.\n\nYou can try re-enabling mods from the mod settings screen."
+STRINGS.UI.MAINSCREEN.MODQUIT = "Disable Mods"
+STRINGS.UI.MAINSCREEN.MODFAILDETAIL = "The following mod(s) have caused a failure:"
+STRINGS.UI.MAINSCREEN.MODFAILDETAIL2 = "The mod will be disabled, re-enable it from the mods menu."
+```
+
+## Implement PostInit function calls
+
+### SimPostInit
+
+In `gamelogic.lua`, add this line below `if TheFrontEnd.error_widget == nil then` in the `OnAllPlayersReady` function
+
+```lua
+ModManager:SimPostInit()
+```
+
+### ComponentPostInit
+
+In `entityscript.lua`, add this right before `return cmp` in the `AddComponent` function
+
+```lua
+local postinitfns = ModManager:GetPostInitFns("ComponentPostInit", name)
+
+for _, fn in ipairs(postinitfns) do
+    fn(cmp, self)
+end
+```
+
+### PrefabPostInit
+
+In `mainfunctions.lua`, right before `TheGlobalInstance:PushEvent("entity_spawned", inst)` in the `SpawnPrefabFromSim` function, add this
+
+```lua
+local modfns = modprefabinitfns[inst.prefab or name]
+if modfns ~= nil then
+    for k,mod in pairs(modfns) do
+        mod(inst)
+    end
+end
+if inst.prefab ~= name then
+    modfns = modprefabinitfns[name]
+    if modfns ~= nil then
+        for k,mod in pairs(modfns) do
+            mod(inst)
+        end
+    end
+end
+```
+
+### PrefabPostInitAny
+
+Also in `mainfunctions.lua`, right below the snippet you just added above, add this
+
+```lua
+for k,prefabpostinitany in pairs(ModManager:GetPostInitFns("PrefabPostInitAny")) do
+    prefabpostinitany(inst)
+end
+```
+
+## Allow resolving file paths for .png images
+
+In `util.lua`, modify the `GetAtlasTex` function like below
+
+```diff
+function GetAtlasTex(atlas_tex, tex)
+    local istex = atlas_tex:find(".tex",1,true)
++   local ispng = atlas_tex:find(".png",1,true)
+    if istex then
+        local index1 = string.find(atlas_tex, "/", 1, true)
+        if not index1 then
+            return atlas_tex, "", true
+        end
+        local index2 = string.find(atlas_tex, "/", index1 + 1, true)
+        if not index2 then
+            return atlas_tex, "", true
+        end
+        local atlas = atlas_tex:sub(1,index2-1)..".xml"
+        tex = atlas_tex:sub(index2+1)
+        return atlas,tex,true
++   elseif ispng then
++       return atlas_tex, "", true
     else
-        return apriority  > bpriority
+        return atlas_tex, "", false
     end
 end
-table.sort(mods_to_load, modPrioritySort)
-
--- we're all set, lets load them
-print("loading mods...")
-for _,mod in ipairs(mods_to_load) do
-    package.path = MODS_ROOT..mod.modname.."\\scripts\\?.lua;"..package.path
-
-   -- load saved mod configs
-   -- i still cant figure this out but GetModConfigData doesnt work without passing
-   -- true to the second argument (get_local_config), regardless of the client_config
-   -- argument in the line below set to true or not
-   KnownModIndex:LoadModConfigurationOptions(mod.modname, true)
-   -- honestly idk what this true (client_config) do, can anyone figure it out?
-
-    RunInEnvironment(mod.fn, mod.env)
-    print("mod \""..mod.name.."\" loaded! priority: "..tostring(mod.modinfo.priority or 0))
-end
 ```
 
-This is the script that is responsible for loading the mod files, basically what it does is go through every subdirectories in the `mods/` folder placed in the game root directory and load every `modmain.lua` file, along with their `modinfo.lua` if found. 
-
-# Thanks for reading
-
-Your game is now patched and it should automatically load all mods put inro `{game directory}/mods` (you'll have to create the `mods` folder yourself), here's an example directory tree to help you visualize: 
-
-```
-Rotwood/
-    bin/
-        ...
-    data/
-        licenses/
-        scripts/
-        ...
-    localizations/
-        ...
-    mods/
-        sample_mod/
-            modinfo.lua
-            modmain.lua
-            utils/
-                ...
-        sample_mod_2/
-            modinfo.lua
-            modmain.lua
-            ...
-    data.zip
-    ...
-```
-
-The mod scripts are run using the mod environment, not the game environment, so you can write them like normal mods (like DS/T mods).
-
-You can also write `modinfo.lua` files for your mods and they will be read correctly.
-
-The `mods/` directory and everything inside it will persist through game updates, but the changes you made to your game scripts won't, so you'll have to patch the game to enable mods every time the game updates, it might seem like a lot of work, but this is way better than editing a ton of game scripts.
-
-Also you should make backups of everything you want to keep, just to be safe, plus it's good practice.
-
-This might not be the most optimal method, but for now it works, and I hope we can improve it as time goes on. Happy modding :3 
-
-**NOTE:** The game might not load mods on the first startup with mods, you might need to restart it once more to load everything.
+This allows the game to find .png files from outside of default search paths (like when you load an image from your own mod's directory).
 
 # Debugging Mods
 
-**(June 23rd 2024) I have just added modsettings.lua support as well as some minor clean ups of the main.lua mod loader script, I recommend patching your main.lua again, just copy and replace the old snippet with the new code.**
+### Dev Tools
 
-If you're making a mod and it ever causes a fatal game crash (error popup), or just simply a mod you installed caused that (which is unlikely but can still happen), the game by default will disable all mods on the next launch. To enable your mods again, you can either:
+See [Enabling dev tools](https://github.com/zgibberish/rotwood-mods/blob/main/docs/enabling_devtools.md).
 
-- Remove mods from the `mods` folder, restart the game, close the game, place mods back in the `mods` folder, start the game again (by default newly installed mods will be enabled, this behavior is intended because there is no built in mod manager screen so you don't have an easy way to enable installed mods)
-- If you have access to the debug console, run `KnownModIndex:Enable("modname")`, followed by `KnownModIndex:Save()`, then reload the game, `modname` correspondss to the directory name of the mod in the `mods` folder.
+### modsettings.lua
 
-Another easier way to have a selection of your mods (known stable ones or the mod that you're debugging) always loaded regardless of crashes is to use `modsettings.lua`, simply create a `modsettings.lua` file in your `mods` directory. This works exactly the same as DS/T's `modsettings.lua`
+Utilizing `modsettings.lua` is very helpful when debugging mods, or runnig modded Rotwood in general. Just create a file named `modsettings.lua` in your `mods/` directory.
 
-In this script you can write `ForceEnableMod("modname")` for mods that you would like the game to load even after mod crashes.
+There are a few functions you can call in `modsettings.lua`, see the snippet below (copied from DST's built in `modsettings.lua`)
 
-# (Optional) Mod Menu
+```lua
+--ForceEnableMod("kioskmode_dst")
 
-I also made a mod that adds a "Mods" page to the game's options screen, to let you more easily see and manage installed mods.
+-- Use "EnableModDebugPrint()" to show extra information during startup.
 
-Mod Menu was moved to its own repository, you can get it [here](https://github.com/zgibberish/rotwood-modmenu).
+--EnableModDebugPrint()
+
+-- Use "EnableModError()" to make the game more strict and crash on bad mod practices.
+
+--EnableModError()
+
+-- Use "DisableModDisabling()" to make the game stop disabling your mods when the game crashes
+
+--DisableModDisabling()
+
+-- Use "DisableLocalModWarning()" to make the game stop warning you when enabling local mods.
+
+--DisableLocalModWarning()
+```
+
+# Mod Menu
+
+I also made a mod that adds a "Mods" page to the game's options screen, to let you more easily see and manage installed mods without going through the console.
+
+Although not required, I highly recommend alwayus having this mod if you play modded.
+
+See [Mod Menu](https://github.com/zgibberish/rotwood-modmenu).
+
+**Note:** Although advised not to by Klei in DST's `modsettings.lua`, you should actually force load Mod Menu to always have it available when using mods in Rotwood, since the game doesn't have a built-in mod settings page. Add this to your `modsettings.lua`
+
+```lua
+ForceEnableMod("modmenu")
+```
+
+# Possible Breaking Changes
+
+There are a few notable differences when switching from the custom modloader script to loading mods with ModWrangler directly, some old mods will not work with ModWrangler and will need to be updated.
+
+For example, hacks used to execute functions on init may not work anymore since ModWrangler initializes mods a bit differently (more similar to DST). Besides, they're no longer needed since we have post init fns now.
+
+You alos now need to have `rotwood_compatible = true` in your `modinfo.lua` so your mod doesn't get filtered out by ModIndex.
+
+`GetModConfigData(name, true)` is no longer needed, that issue is fixed when switching over to ModWrangler now, just do `GetModConfigData(name)`.
+
+# Thanks For Reading
+
+If you followed all the steps above correctly, your game is now patched and it should automatically load all mods put inro `{game directory}/mods` (you'll have to create the `mods` folder yourself), here's an example directory tree to help you visualize:
+
+```
+Rotwood/
+├─ bin/
+│  ├─ ...
+├─ data/
+│  ├─ licenses/
+│  ├─ scripts/
+│  ├─ ...
+├─ localizations/
+├─ mods/
+│  ├─ modmenu/
+│  │  ├─ scripts/
+│  │  ├─ modinfo.lua
+│  │  ├─ modmain.lua
+│  ├─ stackable-mammimal-howl/
+│  │  ├─ modinfo.lua
+│  │  ├─ modmain.lua
+├─ data.zip
+├─ ...
+```
+
+Just like DST mods, Rotwood mods are run in their own mod environments and work very similarly to DST mods (except DST-exclusive features).
+
+The `mods/` directory and everything inside it will persist through game updates, but edits you've made to game scripts won't, so you'll have to do all the steps above again every time Rotwood gets updated if you want to continue using mods.
+
+Again, Rotwood does not officially support modding, and Klei won't assist you for any issues that come up when you're playing with any kind of modifications. Making backups of your save files is also highly recommended.
+
+# Pre-made Patch Files
+
+To make the process quicker and easier, I also make diff patches for this, you can find them in the `patches` folder in this repo, just pick one with the revision number you need and apply it with GNU Patch.
+
+The patch utility should be included in most Linux distros, if you have GNU utils, you probably have it already. For Windows, you can get `patch` from the [GnuWin32](https://gnuwin32.sourceforge.net/packages/patch.htm) project, or use the one included in the Windows version of [Git](https://git-scm.com/), it's also available from [Chocolatey package manager](https://community.chocolatey.org/packages/patch).
+
+To apply a patch, have your `data_scripts.zip` extracted and have `scripts/` accessible from the current directory, then run this command
+
+```shell
+patch -p0 < patchfile
+```
+
+Where `patchfile` would be the patch file you're applying, for example: `637216.patch`.
+
+**NOTE:** this uses Unix input/output redirections syntax. I couldn't find how to do it on Windows's cmd/PowerShell :/ (you can also just use something like a Bash shell on Windows and it will work).
+
+I will try my best to make new patches for every newer version released, you can always manually patch your scripts using the guide above if there isn't a patch file made for your current game REV.
