@@ -1,7 +1,5 @@
 # About Rotwood Modding
 
-**ModWrangler branch:** This is the newer, work-in-progress method to run mods, it requires a bit more work to patch the mod manager but should support more modding API features and be more stable. Please read the guide throughly, especially the [Possible Breaking Changes](#possible-breaking-changes) section below.
-
 **Rotwood currently does not officially support modding and Klei will not provide support for modded installs, please back up your save files and use/create mods at your own risk. [Read more here](https://support.klei.com/hc/en-us/articles/28992668677140-Rotwood-Client-Mods)**
 
 **Original post on Klei forums:** https://forums.kleientertainment.com/forums/topic/155849-unofficial-modding-support/
@@ -299,9 +297,9 @@ ForceEnableMod("modmenu")
 
 # Possible Breaking Changes
 
-There are a few notable differences when switching from the custom modloader script to loading mods with ModWrangler directly, some old mods will not work with ModWrangler and will need to be updated.
+If you've just recently switched from the old modloader to this version, there are a few notable differences and some outdated mods may need to be updated to work with ModWrangler.
 
-For example, hacks used to execute functions on init may not work anymore since ModWrangler initializes mods a bit differently (more similar to DST). Besides, they're no longer needed since we have post init fns now.
+For example, janky hacks used to execute functions on init may not work anymore since ModWrangler initializes mods a bit differently (more similar to DST). Besides, they're no longer needed since we have post init fns now.
 
 You alos now need to have `rotwood_compatible = true` in your `modinfo.lua` so your mod doesn't get filtered out by ModIndex.
 
