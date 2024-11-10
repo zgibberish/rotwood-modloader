@@ -148,7 +148,7 @@ The built-in mod warning screen that shows up when you start the game with mods 
 
 Replace `screens/modwarningscreen.lua` with the `modwarningscreen.lua` file from the `src` folder in this repository (can also copy-paste the whole file contents since it's just text).
 
-There will be some missing strings that the screen needs, for your convenience, I made this snippet that you can just add to the end of `strings.lua`
+There will be some missing strings that the screen needs, for your convenience, I made this snippet that you can just add to the end of `strings/strings.lua`
 
 ```lua
 STRINGS.UI.MAINSCREEN.MODTITLE = "Mods Installed!"
