@@ -340,16 +340,16 @@ Again, Rotwood does not officially support modding, and Klei won't assist you fo
 
 To make the process quicker and easier, I also make diff patches for this, you can find them in the `patches` folder in this repo, just pick one with the revision number you need and apply it with GNU Patch.
 
-The patch utility should be included in most Linux distros, if you have GNU utils, you probably have it already. For Windows, you can get `patch` from the [GnuWin32](https://gnuwin32.sourceforge.net/packages/patch.htm) project, or use the one included in the Windows version of [Git](https://git-scm.com/), it's also available from [Chocolatey package manager](https://community.chocolatey.org/packages/patch).
+**Linux:** The `patch` utility should be included in most Linux distros, if you have GNU utils, you probably have it already.
 
-To apply a patch, have your `data_scripts.zip` extracted and have `scripts/` accessible from the current directory, then run this command
+**Windows:** Install [Git](git-scm.com) (`patch` is included in git bash), open a Bash terminal by right clicking in a File Explorer window and select "Git Bash Here", then follow the same steps below.
+
+To apply a patch, have your `data_scripts.zip` extracted and navigate to the directory that contains `scripts/` (e.g: `data/`), then run this:
 
 ```shell
 patch -p0 < patchfile
 ```
 
 Where `patchfile` would be the patch file you're applying, for example: `637216.patch`.
-
-**NOTE:** this uses Unix input/output redirections syntax. I couldn't find how to do it on Windows's cmd/PowerShell :/ (you can also just use something like a Bash shell on Windows and it will work).
 
 I will try my best to make new patches for every newer version released, you can always manually patch your scripts using the guide above if there isn't a patch file made for your current game REV.
