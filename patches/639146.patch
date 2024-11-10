@@ -336,7 +336,7 @@ diff -ruN scripts/util.lua scripts_modified/util.lua
  -- For handling loading images from texture atlases
  function GetAtlasTex(atlas_tex, tex)
  	local istex = atlas_tex:find(".tex",1,true)
-+	local istex = atlas_tex:find(".png",1,true)
++	local ispng = atlas_tex:find(".png",1,true)
  	if istex then
  		local index1 = string.find(atlas_tex, "/", 1, true)
  		if not index1 then
