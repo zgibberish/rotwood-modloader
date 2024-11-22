@@ -1,10 +1,7 @@
 local Screen = require "widgets/screen"
-local Button = require "widgets/button"
-local AnimButton = require "widgets/animbutton"
 local Menu = require "widgets/menu"
 local Text = require "widgets/text"
 local Image = require "widgets/image"
-local UIAnim = require "widgets/uianim"
 local Widget = require "widgets/widget"
 
 local Controls = require "input.controls"
@@ -56,7 +53,7 @@ local ModWarningScreen = Class(Screen, function(self, title, text, buttons, text
 	if Platform.IsRail() then
 		-- disable the mod forum button if it exists
 		if self.menu and self.menu.items then
-			for i,v in pairs(self.menu.items) do
+			for _,v in pairs(self.menu.items) do
 				if v:GetText() == STRINGS.UI.MAINSCREEN.MODFORUMS then
 					v:Select()
 					v:SetToolTip(STRINGS.UI.MAINSCREEN.MODFORUMS_NOT_AVAILABLE_YET)
