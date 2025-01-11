@@ -36,7 +36,13 @@ Heres a rough list of things that are possible with modding right now (might be 
 
 ### Diff Patches (Recommended)
 
-For making said modifications to game scripts, I've made diff patches for the most recent builds and will try to continue providing these patches for future versions, you can find them in the `patches/` folder in this repo, just pick one with the build revision number you need and apply it with **GNU Patch**. If there isn't one for the build you need, you can still follow manual instructions below to edit the scripts yourself.
+For making said modifications to game scripts, I've made diff patches for the most recent builds and will try to continue providing these patches for future versions, you can find them in the `patches/` folder in this repo, just pick one with the build revision number you need and apply it with **GNU Patch**.
+
+If there isn't one for the build you need (maybe I haven't uploaded the latest patches yet), you can either:
+
+- Follow manual instructions below to edit the scripts yourself
+  - And maybe contribute new patch files to the repository if you can <3 (see [Note For Contributors](#note-for-contributors))
+- Submit an issue on this GitHub repo to notify me (provide your revision number)
 
 **Linux:** The `patch` utility should be included in most Linux distros, if you have GNU utils, you probably have it already. If not, it's most likely available from your distro's package repos.
 
@@ -49,6 +55,21 @@ patch -p0 < patchfile
 ```
 
 Where `patchfile` would be the patch file you're applying, for example: `637216.patch`.  Your scripts should be automatically patched with the necessary modifications to load mods.
+
+You should be getting output like this
+
+```shell
+patching file scripts/entityscript.lua
+patching file scripts/gamelogic.lua
+patching file scripts/mainfunctions.lua
+patching file scripts/main.lua
+patching file scripts/modindex.lua
+patching file scripts/mods.lua
+patching file scripts/modutil.lua
+patching file scripts/screens/modwarningscreen.lua
+patching file scripts/strings/strings.lua
+patching file scripts/util.lua
+```
 
 ### Manual Patching
 
@@ -263,6 +284,20 @@ end
 
 This allows the game to find .png files from outside of default search paths (like when you load an image from your own mod's directory).
 
+#### Note For Contributors
+
+I'd also really appreciate if you contribute patch files to this repo, here's the general setup I use to generate them:
+
+```txt
+patch_root/
+├─ scripts/
+├─ scripts_modified/
+```
+
+- Have a directory containing `scripts/` (original scripts), and `scripts_modified/` (duplicated from `scripts/`)
+- Make changes in `scripts_modified/`
+- From `patch_root`, run `diff -ruN scripts scripts_modified > REV.patch`
+
 ## Debugging Mods
 
 ### Dev Tools
@@ -306,7 +341,7 @@ See [Mod Menu](https://github.com/zgibberish/rotwood-modmenu).
 **Note:** Although advised not to by Klei in DST's `modsettings.lua`, you should actually force load Mod Menu to always have it available when using mods in Rotwood, since the game doesn't have a built-in mod settings page. Add this to your `modsettings.lua`
 
 ```lua
-ForceEnableMod("modmenu")
+ForceEnableMod("rotwood-modmenu")
 ```
 
 ## Possible Breaking Changes
