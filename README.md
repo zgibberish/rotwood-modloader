@@ -14,23 +14,28 @@ Heres a rough list of things that are possible with modding right now (might be 
 
 - Working:
   - General modding (globals, players, entities, components. events, inputs, classes, tunings, strings, etc)
-  - Basically cheating (Since your game client manages your local player entities, even if you're not the host, you can do anything to yourself) (Rotwood uses p2p networking instead of server-clients)
   - `modimport`, `require` for other mod scripts (working searchpaths).
   - `modinfo` (using the same structure as DST)
+  - Mod icons (should work without issues, though support for it depends on the [Mod Menu](#mod-menu) mod)
   - Mod configuration options
   - `modsettings.lua`
-  - Upvalue modifying
+  - Upvalue
   - `AddClassPostConstruct`
   - Widgets, Screens and general UI
   - Stategraphs
   - Components
   - ImGui panels
   - Add*PostInit (tested: `AddGamePostInit`, `AddSimPostInit`, `AddComponentPostInit`, `AddPrefabPostInit`, `AddPrefabPostInit`, `AddPrefabPostInitAny`, `AddPlayerPostInit`)
-  - Assets (mod assets can be loaded and used, though I have only tested on .png files)
-  - Mod icons (should work without issues, though support for it depends on the [Mod Menu](#mod-menu) mod)
-- Not working / haven't tested:
+  - Texture assets (TEX/XML and PNG)
+  - Powers
+  - Gems
+  - *Weapons
+- Known issues / not tested:
   - *Networking (communicating with remote clients and sending data back and forth) (reason: not implemented and/or not enough info about Rotwood networking systems)
     - You can use serialization to sync data in components on network tho.
+  - Loading modded anim builds/banks
+  - (TEX/XML) Loading tex/atlas in nested paths (like `images/color_cubes/identity_cc.tex`) will cause errors.
+    - e.g: The game will try to load `images/color_cubes.tex` ?????
 
 ## Installation
 
