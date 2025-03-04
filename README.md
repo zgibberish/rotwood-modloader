@@ -1,5 +1,13 @@
 # Rotwood Modloader
 
+## API v1 branch
+
+This is the (WIP) updated documentation for Rotwood's new modloader implementation (mod API version 1). This applies to Rotwood REV 657187 and above (Delicious Beta).
+
+There's still a lot of untested stuff, so please submit issues if you encounter any bugs or crashes.
+
+Please read through the updated instructions thoroughly and see [Breaking Changes](#breaking-changes).
+
 ## Introduction
 
 **Rotwood currently does not officially support modding and Klei will not provide support for modded installs, please back up your save files and use/create mods at your own risk. [Read more here](https://support.klei.com/hc/en-us/articles/28992668677140-Rotwood-Client-Mods)**
@@ -86,37 +94,19 @@ You will be modifying, commenting and adding some code in the game scripts, if y
 
 In `main.lua`, add the following line in the `--defines` area, preferably right below the `--defines` line
 
-```lua
-MODS_ENABLED = true
-```
-
-Near the end of `main.lua` there are these lines
+**NOTE (apiv1):** `MODS_ENABLED` is already enabled, but now you need to enable `GAMEPLAY_MODS_ENABLED` instead.
 
 ```lua
---#V2C no mods for now... deal with this later T_T
-assert(false)
+GAMEPLAY_MODS_ENABLED = true
 ```
 
-Comment the `assert(false)` line.
-
-Add this right below `--#V2C no mods for now... deal with this later T_T` in the `ModSafeStartup` function
+Uncomment this line below `--#V2C no mods for now... deal with this later T_T` in the `ModSafeStartup` function
 
 ```lua
--- newly installed mods behave incorrectly so just go thorugh and
--- disable all new mods and save modindex so the game can properly
--- register them
-for _,modname in ipairs(TheSim:GetModDirectoryNames()) do
-    if KnownModIndex.savedata and KnownModIndex.savedata.known_mods and KnownModIndex.savedata.known_mods[modname] then  
-        if KnownModIndex.savedata.known_mods[modname].enabled == nil then
-            KnownModIndex:Disable(modname)
-        end
-    end
-end
-KnownModIndex:Save()
-ModManager:LoadMods()
+--ModManager:LoadMods()
 ```
 
-#### Fix modutil
+#### modutil
 
 In `modutil.lua`, comment these lines
 
@@ -128,26 +118,139 @@ env.Ingredient = Ingredient
 env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
 ```
 
-#### Fix ModIndex
+#### ModIndex
 
-ModIndex by default will filter out all mods that don't specify `dst_compatible = true` in `modinfo.lua`. Obviously, Rotwood mods are not DST mods so this will not work.
+In `modindex.lua`, edit the `ModType` enum as follow
 
-In `modindex.lua`, modify `IsModCompatibleWithMode` like shown below
+```diff
+local ModType = Enum{
+    "translation",
++   "gameplay",
+}
+```
+
+In the `_LoadModInfo` function, uncomment this whole section (remove the `~` too)
+
+```lua
+--~ local print_atlas_warning = true
+--~ if info.icon_atlas ~= nil and info.icon ~= nil and info.icon_atlas ~= "" and info.icon ~= "" then
+--~ 	local atlaspath = MODS_ROOT .. modname .. "/" .. info.icon_atlas
+--~ 	local iconpath = string.gsub(atlaspath, "/[^/]*$", "") .. "/" .. info.icon
+--~ 	if softresolvefilepath(atlaspath) and softresolvefilepath(iconpath) then
+--~ 		info.icon_atlas = atlaspath
+--~ 		info.iconpath = iconpath
+--~ 	else
+--~ 		-- This prevents malformed icon paths from crashing the game.
+--~ 		if print_atlas_warning then
+--~ 			TheLog.ch.Mods:print(
+--~ 				string.format(
+--~ 					'WARNING: icon paths for mod %s are not valid. Got icon_atlas="%s" and icon="%s".\nPlease ensure that these point to valid files in your mod folder, or else comment out those lines from your modinfo.lua.',
+--~ 					self:GetModLogName(modname),
+--~ 					info.icon_atlas,
+--~ 					info.icon
+--~ 				)
+--~ 			)
+--~ 			print_atlas_warning = false
+--~ 		end
+--~ 		info.icon_atlas = nil
+--~ 		info.iconpath = nil
+--~ 		info.icon = nil
+--~ 	end
+--~ else
+--~ 	info.icon_atlas = nil
+--~ 	info.iconpath = nil
+--~ 	info.icon = nil
+--~ end
+```
+
+Modify `IsModCompatibleWithMode` like shown below
 
 ```diff
 function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
++   dlcmode = "rotwood"
+
     local known_mod = self.savedata.known_mods[modname]
     if known_mod and known_mod.modinfo then
--       return known_mod.modinfo.dst_compatible
-+       return known_mod.modinfo.rotwood_compatible
+        return known_mod.modinfo.supports_mode[dlcmode]
     end
     return false
 end
 ```
 
-The variable `rotwood_compatible` isn't actually used anywhere else in Rotwood, I just decided to use that name so Rotwood mods can be more easily differentiated from ds(t) mods.
+**NOTE:** I just made up that mode name because it works, definitely should not be a permanent solution.
 
-#### Fix ModWrangler
+Modify `IsModInitPrintEnabled`
+
+```diff
+function ModIndex:IsModInitPrintEnabled()
+-   return self.modsettings.initdebugprint
++   return false -- prevent odd crash in modutil initprint
+end
+```
+
+The modsettings section in ModIndex was removed, so let's add that back, first insert this function
+
+```lua
+function ModIndex:UpdateModSettings()
+
+    self.modsettings = {
+        forceenable = {},
+        disablemods = true,
+        localmodwarning = true
+    }
+
+    local function ForceEnableMod(modname)
+        print("WARNING: Force-enabling mod '"..modname.."' from modsettings.lua! If you are not developing a mod, please use the in-game menu instead.")
+        self.modsettings.forceenable[modname] = true
+    end
+    local function EnableModDebugPrint()
+        self.modsettings.initdebugprint = true
+    end
+    local function EnableModError()
+        self.modsettings.moderror = true
+    end
+    local function DisableModDisabling()
+        self.modsettings.disablemods = false
+    end
+    local function DisableLocalModWarning()
+        self.modsettings.localmodwarning = false
+    end
+    
+    local env = {
+        ForceEnableMod = ForceEnableMod,
+        EnableModDebugPrint = EnableModDebugPrint,
+        EnableModError = EnableModError,
+        DisableModDisabling = DisableModDisabling,
+        DisableLocalModWarning = DisableLocalModWarning,
+        print = print,
+    }
+
+    local filename = MODS_ROOT.."modsettings.lua"
+    local fn = kleiloadlua( filename )
+    if fn == nil then
+        print("could not load modsettings: "..filename)
+        print("Warning: You may want to try reinstalling the game if you need access to forcing mods on.")
+    else    
+        if type(fn)=="string" then
+            error("Error loading modsettings:\n"..fn)
+        end
+        setfenv(fn, env)
+        fn()
+    end
+end
+```
+
+Then add this line to the start of the `Load` function
+
+```diff
+function ModIndex:Load(cb)
++   self:UpdateModSettings()
+
+    local filename = self:_GetModIndexFileName("config")
+...
+```
+
+#### ModWrangler
 
 In `mods.lua`, comment these lines from the `CreateEnvironment` function
 
@@ -170,25 +273,43 @@ self:DisableAllServerMods()
 Modify `runmodfn` like shown below
 
 ```diff
-local runmodfn = function(fn,mod,modtype)
-    return (function(...)
+local runmodfn = function(fn, mod, modtype)
+    return function(...)
 +       local args = {...}
         if fn then
--           local status, r = xpcall( function() return fn(table.unpack(arg)) end, debug.traceback)
-+           local status, r = xpcall( function() return fn(table.unpack(args)) end, debug.traceback)
+            local status, r = xpcall(function()
+-               return fn(table.unpack(arg))
++               return fn(table.unpack(args))
+            end, debug.traceback)
             if not status then
-                print("error calling "..modtype.." in mod "..ModInfoname(mod.modname)..": \n"..r)
-                ModManager:RemoveBadMod(mod.modname,r)
+                TheLog.ch.Mods:print("error calling " .. modtype .. " in mod " .. ModInfoname(mod.modname) .. ": \n" .. r)
+                ModManager:RemoveBadMod(mod.modname, r)
                 ModManager:DisplayBadMods()
             else
                 return r
             end
         end
-    end)
+    end
 end
 ```
 
-#### Fix ModWarningScreen
+Modify this one line in `InitializeModMain` like below
+
+```diff
+...
+if status == false then
+-   moderror("Mod: " .. ModInfoname(modname), "  Error loading mod!\n" .. r .. "\n")
++   TheLog.ch.Mods:print("Mod: " .. ModInfoname(modname), "  Error loading mod!\n" .. r .. "\n")
+    table.insert(self.failedmods, { name = modname, error = r })
+    return false
+else
+    -- the env is an "out reference" so we're done here.
+    return true
+end
+...
+```
+
+#### ModWarningScreen
 
 The built-in mod warning screen that shows up when you start the game with mods is broken because most of its code was taken straight from DST and hasn't been updated to work with Rotwood.
 
@@ -349,15 +470,70 @@ See [Mod Menu](https://github.com/zgibberish/rotwood-modmenu).
 ForceEnableMod("rotwood-modmenu")
 ```
 
-## Possible Breaking Changes
+## Breaking Changes
 
-If you've just recently switched from the old modloader to this version, there are a few notable differences and some outdated mods may need to be updated to work with ModWrangler.
+### Migration from API v10 to API v1
 
-For example, janky hacks used to execute functions on init may not work anymore since ModWrangler initializes mods a bit differently (more similar to DST). Besides, they're no longer needed since we have post init fns now.
+#### modinfo
 
-`GetModConfigData(name, true)` is no longer needed, that issue is fixed when switching over to ModWrangler now, just do `GetModConfigData(name)`.
+`modinfo` now needs to return its properties as a table, the format is roughly still the same with a few changes:
 
-You now need to have `rotwood_compatible = true` in your `modinfo.lua` so your mod doesn't get filtered out by ModIndex.
+- You need to provide both `version` and `mod_version`, they can be the same value, because the new ModIndex reads version number from the updated `mod_version`, while ModWrangler still uses `version`.
+- The `mod_type` property
+  - Translation mods (officially supported) will use the `"translation"` mod type
+  - For other mods, use the `"gameplay"` mod type
+- The `supports_mode` table (see example API v1 modinfo below)
+- `api_version` needs to be `1`
+- `*_compatible` properties are no longer used and you can omit them completely
+
+So for example, an older modinfo
+
+```lua
+name = "gbtestmod"
+description = "gah"
+author = "gibberish"
+version = "dev"
+api_version = 10
+
+client_only_mod = true
+all_clients_require_mod = false
+
+icon_atlas = "modicon.png"
+icon = "modicon.png"
+```
+
+Would now look like this
+
+```lua
+return {
+    name = "gbtestmod",
+    description = "gah",
+    author = "gibberish",
+    version = "dev",
+    mod_version = "dev",
+    api_version = 1,
+    mod_type = "gameplay",
+    supports_mode = {
+        rotwood = true,
+    },
+
+    client_only_mod = true,
+    all_clients_require_mod = false,
+
+    icon_atlas = "modicon.png",
+    icon = "modicon.png",
+}
+```
+
+**NOTE:** You can see the sample translation mod now included with Rotwood's game files (samplemods.zip) for more details.
+
+#### ModIndex functinos
+
+If you use functions from ModIndex, you should read through the new ModIndex script for breaking changes like moved/renamed functions. There's too many changes to list here but I'll just give a few examples:
+
+- `Enable` renamed to `EnableMod`
+- `Disable` renamed to `DisableMod`
+- `GetClientModNames` removed
 
 ## Thanks For Reading
 
