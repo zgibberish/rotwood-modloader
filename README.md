@@ -1,5 +1,9 @@
 # Rotwood Modloader
 
+## Delicious Beta
+
+If you're looking for modloader patches for the new Delicious beta update, Klei updated the modloader and this guide does not apply for that version or newer, please head to the [apiv1](https://github.com/zgibberish/rotwood-modloader/tree/apiv1) branch.
+
 ## Introduction
 
 **Rotwood currently does not officially support modding and Klei will not provide support for modded installs, please back up your save files and use/create mods at your own risk. [Read more here](https://support.klei.com/hc/en-us/articles/28992668677140-Rotwood-Client-Mods)**
