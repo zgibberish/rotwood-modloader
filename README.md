@@ -537,34 +537,27 @@ If you use functions from ModIndex, you should read through the new ModIndex scr
 
 ## Thanks For Reading
 
-If you followed all the steps above correctly, your game should be patched and ready to load mods. You'll need to create a `mods/` folder in the game directory yourself.
+If you followed all the steps above correctly, your game should be patched and ready to load mods.
 
-```shell
-Rotwood/
-├─ bin/
-│  ├─ ...
-├─ data/
-│  ├─ licenses/
-│  ├─ scripts/
-│  ├─ ...
-├─ localizations/
-├─ mods/
-│  ├─ modmenu/
-│  │  ├─ images/
-│  │  ├─ img/
-│  │  ├─ scripts/
-│  │  ├─ LICENSE
-│  │  ├─ modicon.png
-│  │  ├─ modinfo.lua
-│  │  ├─ modmain.lua
-│  │  ├─ README.md
-│  ├─ stackable-mammimal-howl/
-│  │  ├─ modicon.png
-│  │  ├─ modinfo.lua
-│  │  ├─ modmain.lua
-│  ├─ ...
-├─ data.zip
-├─ ...
+Place mods in the `mods/` folder in Rotwood's save files path (`C:\Users\username\AppData/Roaming/Klei/Rotwood/steam-xxx/`), note that this is not inside the game files folder, but in `AppData`. You must create this folder yourself if it doesn't exist.
+
+**NOTE:** Replace `Rotwood` with `Rotwood_preview` for beta save files.
+
+```txt
+AppData/
+├─ Roaming/
+│  ├─ Klei/
+│  │  ├─ Rotwood/
+│  │  │  ├─ steam-xxx/
+│  │  │  │  ├─ Agreements/
+│  │  │  │  ├─ cache/
+│  │  │  │  ├─ backup/
+│  │  │  │  ├─ feedback/
+│  │  │  │  ├─ mods/
+│  │  │  │  │  ├─ modmenu/
+│  │  │  │  │  ├─ stackable-mammimal-howl/
+│  │  │  │  ├─ saves/
+│  │  │  │  ├─ client_log.txt
 ```
 
 Rotwood mods are run in their own mod environments and work very similarly to DST mods.
