@@ -168,7 +168,6 @@ Modify `IsModCompatibleWithMode` like shown below
 ```diff
 function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
 +   dlcmode = "rotwood"
-
     local known_mod = self.savedata.known_mods[modname]
     if known_mod and known_mod.modinfo then
         return known_mod.modinfo.supports_mode[dlcmode]
