@@ -1,0 +1,507 @@
+diff -ruN scripts/entityscript.lua scripts_modified/entityscript.lua
+--- scripts/entityscript.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/entityscript.lua	2025-03-06 11:39:34.685077034 +0700
+@@ -584,6 +584,11 @@
+ --	 	cmp.__zone_wall_update_component = string.format("%s:OnWallUpdate", name)
+ --	 	cmp.__zone_serialize_netcomponent = string.format("%s:NetSerialize", name)
+ 	--~ end
++	local postinitfns = ModManager:GetPostInitFns("ComponentPostInit", name)
++
++	for _, fn in ipairs(postinitfns) do
++		fn(cmp, self)
++	end
+ 	return cmp
+ end
+ 
+diff -ruN scripts/gamelogic.lua scripts_modified/gamelogic.lua
+--- scripts/gamelogic.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/gamelogic.lua	2025-03-06 11:39:34.686784241 +0700
+@@ -430,6 +430,7 @@
+ 	--PopulateWorld(savedata, profile) --> Moved to BeginRoom
+ 
+ 	if TheFrontEnd.error_widget == nil then
++		ModManager:SimPostInit()
+ 		-- This will start the encounter coroutine on the net host.
+ 		assert(TheWorld)
+ 		TheDungeon:StartRoom()
+diff -ruN scripts/mainfunctions.lua scripts_modified/mainfunctions.lua
+--- scripts/mainfunctions.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/mainfunctions.lua	2025-03-06 11:39:34.688026598 +0700
+@@ -192,6 +192,24 @@
+ 
+ 		inst:Embellish()
+ 
++		local modfns = modprefabinitfns[inst.prefab or name]
++		if modfns ~= nil then
++			for k,mod in pairs(modfns) do
++				mod(inst)
++			end
++		end
++		if inst.prefab ~= name then
++			modfns = modprefabinitfns[name]
++			if modfns ~= nil then
++				for k,mod in pairs(modfns) do
++					mod(inst)
++				end
++			end
++		end
++
++		for k,prefabpostinitany in pairs(ModManager:GetPostInitFns("PrefabPostInitAny")) do
++			prefabpostinitany(inst)
++		end
+ 		TheGlobalInstance:PushEvent("entity_spawned", inst)
+ 	end
+ 
+diff -ruN scripts/main.lua scripts_modified/main.lua
+--- scripts/main.lua	2025-03-06 11:40:08.580265847 +0700
++++ scripts_modified/main.lua	2025-03-06 11:40:18.909991610 +0700
+@@ -27,6 +27,7 @@
+ Platform = require "util.platform"
+ 
+ --defines
++GAMEPLAY_MODS_ENABLED = true
+ MAIN = 1
+ IS_QA_BUILD = not not TheSim:GetCurrentBetaBranch():find("huwiz")
+ DEV_MODE = RELEASE_CHANNEL == "dev" or IS_QA_BUILD -- For now, QA gets debug tools everywhere.
+@@ -294,7 +295,7 @@
+ 	---PREFABS AND ENTITY INSTANTIATION
+ 
+ 	--#V2C no mods for now... deal with this later T_T
+-	--ModManager:LoadMods()
++	ModManager:LoadMods()
+ 
+ 	-- Apply translations
+ 	TheGameContent:SetLanguage()
+@@ -772,4 +773,3 @@
+ 	end
+ 
+ end
+-
+diff -ruN scripts/mods/modindex.lua scripts_modified/mods/modindex.lua
+--- scripts/mods/modindex.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/mods/modindex.lua	2025-03-06 11:39:34.840065699 +0700
+@@ -48,6 +48,7 @@
+ 
+ local ModType = Enum{
+ 	"translation",
++	"gameplay",
+ }
+ 
+ function ModIndex:_GetModIndexFileName(suffix)
+@@ -422,35 +423,35 @@
+ 	info.mod_type = info.mod_type:lower():trim()
+ 	info.mod_id = modname
+ 
+-	--~ local print_atlas_warning = true
+-	--~ if info.icon_atlas ~= nil and info.icon ~= nil and info.icon_atlas ~= "" and info.icon ~= "" then
+-	--~ 	local atlaspath = MODS_ROOT .. modname .. "/" .. info.icon_atlas
+-	--~ 	local iconpath = string.gsub(atlaspath, "/[^/]*$", "") .. "/" .. info.icon
+-	--~ 	if softresolvefilepath(atlaspath) and softresolvefilepath(iconpath) then
+-	--~ 		info.icon_atlas = atlaspath
+-	--~ 		info.iconpath = iconpath
+-	--~ 	else
+-	--~ 		-- This prevents malformed icon paths from crashing the game.
+-	--~ 		if print_atlas_warning then
+-	--~ 			TheLog.ch.Mods:print(
+-	--~ 				string.format(
+-	--~ 					'WARNING: icon paths for mod %s are not valid. Got icon_atlas="%s" and icon="%s".\nPlease ensure that these point to valid files in your mod folder, or else comment out those lines from your modinfo.lua.',
+-	--~ 					self:GetModLogName(modname),
+-	--~ 					info.icon_atlas,
+-	--~ 					info.icon
+-	--~ 				)
+-	--~ 			)
+-	--~ 			print_atlas_warning = false
+-	--~ 		end
+-	--~ 		info.icon_atlas = nil
+-	--~ 		info.iconpath = nil
+-	--~ 		info.icon = nil
+-	--~ 	end
+-	--~ else
+-	--~ 	info.icon_atlas = nil
+-	--~ 	info.iconpath = nil
+-	--~ 	info.icon = nil
+-	--~ end
++	local print_atlas_warning = true
++	if info.icon_atlas ~= nil and info.icon ~= nil and info.icon_atlas ~= "" and info.icon ~= "" then
++		local atlaspath = MODS_ROOT .. modname .. "/" .. info.icon_atlas
++		local iconpath = string.gsub(atlaspath, "/[^/]*$", "") .. "/" .. info.icon
++		if softresolvefilepath(atlaspath) and softresolvefilepath(iconpath) then
++			info.icon_atlas = atlaspath
++			info.iconpath = iconpath
++		else
++			-- This prevents malformed icon paths from crashing the game.
++			if print_atlas_warning then
++				TheLog.ch.Mods:print(
++					string.format(
++						'WARNING: icon paths for mod %s are not valid. Got icon_atlas="%s" and icon="%s".\nPlease ensure that these point to valid files in your mod folder, or else comment out those lines from your modinfo.lua.',
++						self:GetModLogName(modname),
++						info.icon_atlas,
++						info.icon
++					)
++				)
++				print_atlas_warning = false
++			end
++			info.icon_atlas = nil
++			info.iconpath = nil
++			info.icon = nil
++		end
++	else
++		info.icon_atlas = nil
++		info.iconpath = nil
++		info.icon = nil
++	end
+ 
+ 	if info.mod_dependencies and not info.client_only_mod then
+ 		local dependencies = {}
+@@ -582,6 +583,7 @@
+ end
+ 
+ function ModIndex:Load(cb)
++	self:UpdateModSettings()
+ 
+ 	local filename = self:_GetModIndexFileName("config")
+ 	TheSim:GetPersistentString(filename, function(load_success, str)
+@@ -613,6 +615,7 @@
+ end
+ 
+ function ModIndex:IsModCompatibleWithMode(modname, dlcmode)
++	dlcmode = "rotwood"
+ 	local known_mod = self.savedata.known_mods[modname]
+ 	if known_mod and known_mod.modinfo then
+ 		return known_mod.modinfo.supports_mode[dlcmode]
+@@ -731,7 +734,7 @@
+ end
+ 
+ function ModIndex:IsModInitPrintEnabled()
+-	return self.modsettings.initdebugprint
++	return false -- prevent odd crash in modutil initprint
+ end
+ 
+ function ModIndex:IsModErrorEnabled()
+@@ -1107,6 +1110,53 @@
+ 	end
+ end
+ 
++function ModIndex:UpdateModSettings()
++
++    self.modsettings = {
++        forceenable = {},
++        disablemods = true,
++        localmodwarning = true
++    }
++
++    local function ForceEnableMod(modname)
++        print("WARNING: Force-enabling mod '"..modname.."' from modsettings.lua! If you are not developing a mod, please use the in-game menu instead.")
++        self.modsettings.forceenable[modname] = true
++    end
++    local function EnableModDebugPrint()
++        self.modsettings.initdebugprint = true
++    end
++    local function EnableModError()
++        self.modsettings.moderror = true
++    end
++    local function DisableModDisabling()
++        self.modsettings.disablemods = false
++    end
++    local function DisableLocalModWarning()
++        self.modsettings.localmodwarning = false
++    end
++    
++    local env = {
++        ForceEnableMod = ForceEnableMod,
++        EnableModDebugPrint = EnableModDebugPrint,
++        EnableModError = EnableModError,
++        DisableModDisabling = DisableModDisabling,
++        DisableLocalModWarning = DisableLocalModWarning,
++        print = print,
++    }
++
++    local filename = MODS_ROOT.."modsettings.lua"
++    local fn = kleiloadlua( filename )
++    if fn == nil then
++        print("could not load modsettings: "..filename)
++        print("Warning: You may want to try reinstalling the game if you need access to forcing mods on.")
++    else    
++        if type(fn)=="string" then
++            error("Error loading modsettings:\n"..fn)
++        end
++        setfenv(fn, env)
++        fn()
++    end
++end
+ 
+ ModIndex.ModType = ModType
+ return ModIndex
+diff -ruN scripts/mods.lua scripts_modified/mods.lua
+--- scripts/mods.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/mods.lua	2025-03-06 11:39:34.688472684 +0700
+@@ -163,9 +163,10 @@
+ 
+ local runmodfn = function(fn, mod, modtype)
+ 	return function(...)
++		local args = {...}
+ 		if fn then
+ 			local status, r = xpcall(function()
+-				return fn(table.unpack(arg))
++				return fn(table.unpack(args))
+ 			end, debug.traceback)
+ 			if not status then
+ 				TheLog.ch.Mods:print("error calling " .. modtype .. " in mod " .. ModInfoname(mod.modname) .. ": \n" .. r)
+@@ -263,7 +264,7 @@
+ 
+ function CreateEnvironment(modname, isworldgen)
+ 	local modutil = require "modutil"
+-	require "map/lockandkey"
++	-- require "map/lockandkey"
+ 
+ 	local env = {
+ 		-- lua
+@@ -282,9 +283,9 @@
+ 		TUNING = TUNING,
+ 
+ 		-- worldgen
+-		GROUND = GROUND,
+-		LOCKS = LOCKS,
+-		KEYS = KEYS,
++		-- GROUND = GROUND,
++		-- LOCKS = LOCKS,
++		-- KEYS = KEYS,
+ 
+ 		-- utility
+ 		GLOBAL = _G,
+@@ -423,7 +424,7 @@
+ 		if IsInFrontEnd() then
+ 			--TheLog.ch.Mods:print("~~~~~~~~~~~~~~~~~~ Disable server mods and clear temp mod flags ~~~~~~~~~~~~~~~~~~ ")
+ 			KnownModIndex:ClearAllTempModFlags() --clear all old temp mod flags when the game starts incase someone killed the process before disconnecting
+-			self:DisableAllServerMods()
++			-- self:DisableAllServerMods()
+ 		end
+ 
+ 		--TheLog.ch.Mods:print( "### LoadMods for game ###" )
+@@ -513,7 +514,7 @@
+ 		end
+ 
+ 		if status == false then
+-			moderror("Mod: " .. ModInfoname(modname), "  Error loading mod!\n" .. r .. "\n")
++			TheLog.ch.Mods:print("Mod: " .. ModInfoname(modname), "  Error loading mod!\n" .. r .. "\n")
+ 			table.insert(self.failedmods, { name = modname, error = r })
+ 			return false
+ 		else
+diff -ruN scripts/modutil.lua scripts_modified/modutil.lua
+--- scripts/modutil.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/modutil.lua	2025-03-06 11:39:34.688736148 +0700
+@@ -434,7 +434,7 @@
+ 
+ 	env.Asset = Asset
+ 
+-	env.Ingredient = Ingredient
++	-- env.Ingredient = Ingredient
+ 
+ 	env.RemapSoundEvent = function(name, new_name)
+ 		initprint("RemapSoundEvent", name, new_name)
+@@ -457,7 +457,7 @@
+ 		SendModRPCToServer(id_table, ...)
+ 	end
+ 
+-	env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
++	-- env.MOD_RPC = MOD_RPC --legacy, mods should use GetModRPC below
+ 
+ 	env.GetModRPC = function(namespace, name)
+ 		initprint("GetModRPC", namespace, name)
+diff -ruN scripts/screens/modwarningscreen.lua scripts_modified/screens/modwarningscreen.lua
+--- scripts/screens/modwarningscreen.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/screens/modwarningscreen.lua	2025-03-06 11:39:34.868343041 +0700
+@@ -1,90 +1,59 @@
+--- TODO(mods): This is an old DST mod file and might not be used by Rotwood.
+-
+-
+ local Screen = require "widgets/screen"
+-local Button = require "widgets/button"
+-local AnimButton = require "widgets/animbutton"
+ local Menu = require "widgets/menu"
+ local Text = require "widgets/text"
+ local Image = require "widgets/image"
+-local UIAnim = require "widgets/uianim"
+ local Widget = require "widgets/widget"
+ 
++local Controls = require "input.controls"
++
+ local ModWarningScreen = Class(Screen, function(self, title, text, buttons, texthalign, additionaltext, textsize)
+ 	Screen._ctor(self, "ModWarningScreen")
+ 
+ 	--darken everything behind the dialog
+-	self.black = self:AddChild(Image("images/global.xml", "square.tex"))
+-    self.black:SetVRegPoint(ANCHOR_MIDDLE)
+-    self.black:SetHRegPoint(ANCHOR_MIDDLE)
+-    self.black:SetAnchors("center","center")
+-    self.black:SetScaleMode(SCALEMODE_FILLSCREEN)
+-	self.black:SetMultColor(0,0,0,.8)
+-
+-	self.root = self:AddChild(Widget("ROOT"))
+-    self.root:SetAnchors("center","center")
+-    self.root:SetPosition(0,0,0)
+-    self.root:SetScaleMode(SCALEMODE_PROPORTIONAL)
+-
+-	--title
+-    self.title = self.root:AddChild(Text(FONTFACE.TITLE, 50))
+-    self.title:SetPosition(0, 170, 0)
+-    self.title:SetText(title)
++	self.background = self:AddChild(Image("images/global/square.tex"))
++		:SetName("Background")
++    	:SetSize(RES_X, RES_Y)
++		:SetMultColor(UICOLORS.BACKGROUND_DARK)
++		:SetMultColorAlpha(0.8)
+ 
+-	--text
+-	local defaulttextsize = 24
+-	if textsize then
+-		defaulttextsize = textsize
+-	end
++	self.main_stack = self:AddChild(Widget("Main Stack"))
++		:SetRegistration("center", "center")
+ 
++	--title
++    self.title = self.main_stack:AddChild(Text(FONTFACE.TITLE, FONTSIZE.OVERLAY_TITLE))
++		:SetName("Title")
++    	:SetText(title)
+ 
+-    self.text = self.root:AddChild(Text(FONTFACE.BODYTEXT, defaulttextsize))
+-	self.text:SetVAlign(ANCHOR_TOP)
++	self.textbody_stack = self.main_stack:AddChild(Widget("Text Body Stack"))
++		:SetRegistration("center", "center")
+ 
++	--text
++	local defaulttextsize = textsize or FONTSIZE.DIALOG_TEXT
++    self.text = self.textbody_stack:AddChild(Text(FONTFACE.BODYTEXT, defaulttextsize))
++		:EnableWordWrap(true)
++		:SetAutoSize(480*4)
++		:SetText(text)
+ 	if texthalign then
+ 		self.text:SetHAlign(texthalign)
+ 	end
+ 
+-
+-    self.text:SetPosition(0, 40, 0)
+-    self.text:SetText(text)
+-    self.text:EnableWordWrap(true)
+-    self.text:SetRegionSize(480*2, 200)
+-
+     if additionaltext then
+-	    self.additionaltext = self.root:AddChild(Text(FONTFACE.BODYTEXT, 24))
+-		self.additionaltext:SetVAlign(ANCHOR_TOP)
+-	    self.additionaltext:SetPosition(0, -150, 0)
+-	    self.additionaltext:SetText(additionaltext)
+-	    self.additionaltext:EnableWordWrap(true)
+-	    self.additionaltext:SetRegionSize(480*2, 100)
++	    self.additionaltext = self.textbody_stack:AddChild(Text(FONTFACE.BODYTEXT, 50))
++			:SetName("Additional Text")
++	    	:SetText(additionaltext)
++	    	:EnableWordWrap(true)
++	    	:SetAutoSize(480*4)
+     end
+ 
+-	self.version = self:AddChild(Text(FONTFACE.BODYTEXT, 20))
+-	--self.version:SetHRegPoint(ANCHOR_LEFT)
+-	--self.version:SetVRegPoint(ANCHOR_BOTTOM)
+-	self.version:SetAnchors("left", "center")
+-	self.version:SetVAlign(ANCHOR_BOTTOM)
+-	self.version:SetRegionSize(200, 40)
+-	self.version:SetPosition(110, 30, 0)
+-	self.version:SetText("Rev. "..APP_VERSION.." "..PLATFORM)
+-
+ 	if buttons then
+-	    --create the menu itself
+-	    local button_w = 200
+-	    local space_between = 20
+-	    local spacing = button_w + space_between
+-
+-	    self.menu = self.root:AddChild(Menu(buttons, 250, true))
+-	    self.menu:SetHRegPoint(ANCHOR_MIDDLE)
+-	    self.menu:SetPosition(0, -250, 0)
+-	    self.default_focus = self.menu
++	    self.menu = self.main_stack:AddChild(Menu(buttons, 250, true))
++			:SetName("Buttons")
+ 	end
+ 
+ 	if Platform.IsRail() then
+ 		-- disable the mod forum button if it exists
+ 		if self.menu and self.menu.items then
+-			for i,v in pairs(self.menu.items) do
++			for _,v in pairs(self.menu.items) do
+ 				if v:GetText() == STRINGS.UI.MAINSCREEN.MODFORUMS then
+ 					v:Select()
+ 					v:SetToolTip(STRINGS.UI.MAINSCREEN.MODFORUMS_NOT_AVAILABLE_YET)
+@@ -92,6 +61,33 @@
+ 			end
+ 		end
+ 	end
++
++	self.version = self:AddChild(Text(FONTFACE.BODYTEXT, 50))
++		:SetName("Version Number")
++		:SetRegistration("left", "bottom")
++		:SetVAlign(ANCHOR_BOTTOM)
++		:SetHAlign(ANCHOR_LEFT)
++		:LayoutBounds("left", "bottom", self)
++		:SetText("Rev. "..APP_VERSION.." "..PLATFORM)
++		:SetMultColorAlpha(0.6)
++
++	self.textbody_stack
++		:CenterChildren()
++		:LayoutChildrenInColumn(48)
++	self.main_stack
++		:CenterChildren()
++		:LayoutChildrenInColumn(100)
++
++	self.default_focus = self.menu and self.menu.items[1] or self.text
+ end)
+ 
++ModWarningScreen.CONTROL_MAP = {
++	{
++		control = Controls.Digital.CANCEL,
++		fn = function(self)
++			TheFrontEnd:PopScreen(self)
++		end,
++	},
++}
++
+ return ModWarningScreen
+diff -ruN scripts/strings/strings.lua scripts_modified/strings/strings.lua
+--- scripts/strings/strings.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/strings/strings.lua	2025-03-06 11:39:34.908410488 +0700
+@@ -3130,3 +3130,16 @@
+ -- 		DESCRIPTION = "You're going to see different numbers beside your equipment - this is intentional."
+ -- 	}
+ -- }
++STRINGS.UI.MAINSCREEN.MODTITLE = "Mods Installed!"
++STRINGS.UI.MAINSCREEN.NEWMODDETAIL = "Newly installed mods: "
++STRINGS.UI.MAINSCREEN.MODDETAIL = "Installed mods: "
++STRINGS.UI.MAINSCREEN.MODDETAIL2 = "Klei is not able to help you should issues arise while using mods. Use with caution!"
++STRINGS.UI.MAINSCREEN.TESTINGYES = "I understand."
++STRINGS.UI.MAINSCREEN.FORCEMODDETAIL = "You are force loading these mods from modsettings.lua. They will always be enabled:"
++STRINGS.UI.MAINSCREEN.MODFORUMS = "Mod Forums"
++STRINGS.UI.MAINSCREEN.MODSBADTITLE = "All Mods Disabled"
++STRINGS.UI.MAINSCREEN.FAILEDMODS = "The following mods failed to run last time and have been disabled: "
++STRINGS.UI.MAINSCREEN.MODSBADLOAD = "The game did not start correctly last time. This was likely caused by a mod, so all client mods have been disabled.\n\nYou can try re-enabling mods from the mod settings screen."
++STRINGS.UI.MAINSCREEN.MODQUIT = "Disable Mods"
++STRINGS.UI.MAINSCREEN.MODFAILDETAIL = "The following mod(s) have caused a failure:"
++STRINGS.UI.MAINSCREEN.MODFAILDETAIL2 = "The mod will be disabled, re-enable it from the mods menu."
+diff -ruN scripts/util.lua scripts_modified/util.lua
+--- scripts/util.lua	2020-01-01 00:00:00.000000000 +0700
++++ scripts_modified/util.lua	2025-03-06 11:39:34.691953283 +0700
+@@ -1179,6 +1179,7 @@
+ -- For handling loading images from texture atlases
+ function GetAtlasTex(atlas_tex, tex)
+ 	local istex = atlas_tex:find(".tex",1,true)
++	local ispng = atlas_tex:find(".png",1,true)
+ 	if istex then
+ 		local index1 = string.find(atlas_tex, "/", 1, true)
+ 		if not index1 then
+@@ -1191,6 +1192,8 @@
+ 		local atlas = atlas_tex:sub(1,index2-1)..".xml"
+ 		tex = atlas_tex:sub(index2+1)
+ 		return atlas,tex,true
++	elseif ispng then
++		return atlas_tex, "", true
+ 	else
+ 		return atlas_tex, "", false
+ 	end
